@@ -1,0 +1,2 @@
+# open -a /Applications/RetroArch.app/Contents/MacOS/RetroArch --args -L /Applications/RetroArch.app/Contents/Resources/cores/sameboy_libretro.dylib `pwd`/hello-world.gb
+open -a /Applications/RetroArch.app/Contents/MacOS/RetroArch --args -L /Applications/RetroArch.app/Contents/Resources/cores/gambatte_libretro.dylib `pwd`/hello-world.gb
