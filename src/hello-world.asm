@@ -43,8 +43,18 @@ SECTION	"p1thru4",ROM0[$0060]
 
 SECTION "globals", WRAM0
 current_frame: ds 1
-player_speed_x: ds 1
-player_speed_y: ds 1
+
+
+SECTION "sprites", OAM
+player_l_y: ds 1
+player_l_x: ds 1
+player_l_tile: ds 1
+player_l_flags: ds 1
+player_r_y: ds 1
+player_r_x: ds 1
+player_r_tile: ds 1
+player_r_flags: ds 1
+
 
 SECTION "tile data", VRAM
 
@@ -134,8 +144,10 @@ begin:
 ; the value of register A to memory location $ff47.
 
 init:
-	ld	a, %11100100 	; Window palette colors, from darkest to lightest
-	ld	[rBGP], a		; CLEAR THE SCREEN
+	ld a, %11100100 	; Window palette colors, from darkest to lightest
+	ld [rBGP], a
+	ld a, %11100100     ; Sprite palette 0
+	ld [rOBP0], a
 
 ;  Here we are setting the X/Y scroll registers
 ; for the tile background to 0 so that we can see
@@ -202,8 +214,20 @@ init:
     ld  bc, RossettoData_SIZE
     call    mem_Copy    ; load tile data
 
+
+    ; initialize OAM
+    ld hl, _OAMRAM
+    xor a
+REPT 40
+    ld [hl+], a ; y
+    ld [hl+], a ; x
+    ld [hl+], a ; tile
+    ld [hl+], a ; flags
+ENDR
+
+
 ; We turn the LCD on. Parameters are explained in the I/O registers section of The GameBoy reference under I/O register LCDC
-	ld	a, LCDCF_ON|LCDCF_BG8000|LCDCF_BG9800|LCDCF_WIN9C00|LCDCF_BGON|LCDCF_WINOFF|LCDCF_OBJ16|LCDCF_OBJOFF
+	ld	a, LCDCF_ON|LCDCF_BG8000|LCDCF_BG9800|LCDCF_WIN9C00|LCDCF_BGON|LCDCF_WINOFF|LCDCF_OBJ16|LCDCF_OBJON
 	ld	[rLCDC], a
 
 ; Next, we clear our 'canvas' to all white by
@@ -220,8 +244,16 @@ init:
 
 	xor a
 	ld [current_frame], a
-	ld [player_speed_x], a
-	ld [player_speed_y], a
+
+	lcd_WaitVRAM
+	ld a, 8 * 9
+	ld [player_l_y], a
+	ld a, 8 * 10
+	ld [player_l_x], a
+	ld a, 8 * 9
+	ld [player_r_y], a
+	ld a, 8 * 11
+	ld [player_r_x], a
 
 ; \1: Map (_SCRN0 or _SCRN1)
 ; \2: Tile index data
@@ -262,29 +294,37 @@ MainLoop:
 	call pad_Read
 	ld b, a ; backup a, since `and` destroys it
 
-.x_axis
-	ld hl, rSCX
 .check_right:
 	and a, PADF_RIGHT
 	jr z, .check_left
-	dec [hl]
+	ld hl, player_l_x
+	inc [hl]
+	ld hl, player_r_x
+	inc [hl]
 .check_left:
 	ld a, b
 	and a, PADF_LEFT
-	jr z, .y_axis
-	inc [hl]
-.y_axis
-	ld hl, rSCY
+	jr z, .check_up
+	ld hl, player_l_x
+	dec [hl]
+	ld hl, player_r_x
+	dec [hl]
 .check_up
 	ld a, b
 	and a, PADF_UP
 	jr z, .check_down
-	inc [hl]
+	ld hl, player_l_y
+	dec [hl]
+	ld hl, player_r_y
+	dec [hl]
 .check_down:
 	ld a, b
 	and a, PADF_DOWN
 	jr z, .end_check
-	dec [hl]
+	ld hl, player_l_y
+	inc [hl]
+	ld hl, player_r_y
+	inc [hl]
 .end_check:
 
 	call waitForVBlank
@@ -300,18 +340,26 @@ MainLoop:
 	jr .endOfFrame
 
 .frame1:
-	SetMapTiles _SCRN0, Rossetto, 9, 7, 2, 2
+	ld a, $80
+	ld [player_l_tile], a
+	ld a, $82
+	ld [player_r_tile], a
+
     jr .endOfFrame
 
 .frame2:
-	SetMapTiles _SCRN0, Rossetto2, 9, 7, 2, 2
+	ld a, $84
+	ld [player_l_tile], a
+	ld a, $86
+	ld [player_r_tile], a
+
     jr .endOfFrame
 
 .endOfFrame:
     ld hl, current_frame
     inc [hl]
 
-jr MainLoop
+jp MainLoop
 
 
 ; ****************************************************************************************

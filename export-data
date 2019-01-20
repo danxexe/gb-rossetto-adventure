@@ -1,0 +1,2 @@
+rgbgfx -f -o data/rossetto-1.2bpp art/rossetto-1.png
+rgbgfx -f -o data/rossetto-2.2bpp art/rossetto-2.png
