@@ -42,8 +42,9 @@ SECTION	"p1thru4",ROM0[$0060]
 
 
 SECTION "globals", WRAM0
-current_frame:
-	ds 1
+current_frame: ds 1
+player_speed_x: ds 1
+player_speed_y: ds 1
 
 SECTION "tile data", VRAM
 
@@ -202,7 +203,7 @@ init:
     call    mem_Copy    ; load tile data
 
 ; We turn the LCD on. Parameters are explained in the I/O registers section of The GameBoy reference under I/O register LCDC
-	ld	a, LCDCF_ON|LCDCF_BG8000|LCDCF_BG9800|LCDCF_BGON|LCDCF_OBJ16|LCDCF_OBJOFF
+	ld	a, LCDCF_ON|LCDCF_BG8000|LCDCF_BG9800|LCDCF_WIN9C00|LCDCF_BGON|LCDCF_WINOFF|LCDCF_OBJ16|LCDCF_OBJOFF
 	ld	[rLCDC], a
 
 ; Next, we clear our 'canvas' to all white by
@@ -219,6 +220,8 @@ init:
 
 	xor a
 	ld [current_frame], a
+	ld [player_speed_x], a
+	ld [player_speed_y], a
 
 ; \1: Map (_SCRN0 or _SCRN1)
 ; \2: Tile index data
@@ -239,14 +242,6 @@ OFFSET SET OFFSET + \5
 ENDR
 ENDM
 
-ShowText: MACRO
-TITLE_SIZE EQU STRLEN(\1)
-Title:
-	db \1
-	lcd_WaitVRAM
-	SetMapTiles _SCRN0, Title, 1, 12, TITLE_SIZE, 1
-ENDM
-
 
 ; Display title
 TITLE_STRING EQUS "\"ROSSETTO ADVENTURE\""
@@ -258,8 +253,43 @@ Title:
 
 MainLoop:
 
+.check_input:
+	; only check input every 8 frames
 	ld a, [current_frame]
-	rla ; double animation speed
+	and a, %111
+	jr nz, .end_check
+
+	call pad_Read
+	ld b, a ; backup a, since `and` destroys it
+
+.x_axis
+	ld hl, rSCX
+.check_right:
+	and a, PADF_RIGHT
+	jr z, .check_left
+	dec [hl]
+.check_left:
+	ld a, b
+	and a, PADF_LEFT
+	jr z, .y_axis
+	inc [hl]
+.y_axis
+	ld hl, rSCY
+.check_up
+	ld a, b
+	and a, PADF_UP
+	jr z, .check_down
+	inc [hl]
+.check_down:
+	ld a, b
+	and a, PADF_DOWN
+	jr z, .end_check
+	dec [hl]
+.end_check:
+
+	call waitForVBlank
+
+	ld a, [current_frame]
 
 	and a
 	jr z, .frame1
@@ -278,7 +308,6 @@ MainLoop:
     jr .endOfFrame
 
 .endOfFrame:
-    call waitForVBlank
     ld hl, current_frame
     inc [hl]
 
@@ -314,8 +343,8 @@ call waitForVBlank
 
 waitForVBlank:
 	ld a, [rLY]
-	cp 145                ; Is display on scan line 145 yet?
-	jr nz, waitForVBlank  ; no, keep waiting
+	cp 144                ; Is display on scan line 145 yet?
+	jr c, waitForVBlank  ; no, keep waiting
 	ret
 
 

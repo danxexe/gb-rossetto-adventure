@@ -4,7 +4,7 @@ FIX = rgbfix
 
 #Change the following lines
 ROM_NAME = hello-world
-SOURCES = src/memory.asm src/hello-world.asm
+SOURCES = src/memory.asm src/hello-world.asm src/keypad.asm
 FIX_FLAGS = -v -p 0
 
 
